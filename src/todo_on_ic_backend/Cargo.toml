@@ -11,6 +11,7 @@ crate-type = ["cdylib"]
 [dependencies]
 candid = "0.9"
 ic-cdk = "0.11"
+ic-stable-structures = "0.6"
 #ic-cdk-timers = "0.5"
 serde = { version = "1.0", features = ["derive"] }
 uuid = { version = "1.5", default-features = false, features = ["js", "v1"] }

@@ -1,7 +1,7 @@
 service : {
     "create_todo": (text) -> (text);
     "get_todo_by_id": (text) -> (variant { Ok : text; Err : text }) query;
-    "get_todos_by_page": (nat32, nat32) -> (vec record { text; text });
+    "get_todos_by_page": (nat32, nat32) -> (vec record { text; text }) query;
     "update_todo_by_id": (text, text) -> (variant { Ok : text; Err : text });
     "delete_todo_by_id": (text) -> (variant { Ok : text; Err : text });
 }

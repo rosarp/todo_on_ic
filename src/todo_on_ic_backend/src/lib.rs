@@ -3,18 +3,32 @@ use ic_cdk::{
     api::{caller, time},
     query, update,
 };
+use ic_stable_structures::{
+    memory_manager::{MemoryId, MemoryManager, VirtualMemory},
+    DefaultMemoryImpl, StableBTreeMap,
+};
 use serde::Deserialize;
 use std::{cell::RefCell, collections::HashMap, thread_local};
 use uuid::{timestamp::context::Context, Timestamp, Uuid};
 
-#[derive(Debug, CandidType, Deserialize)]
+type Memory = VirtualMemory<DefaultMemoryImpl>;
+
+#[derive(Debug, CandidType, Deserialize, Eq, PartialEq)]
 enum IcResult {
     Ok(String),
     Err(String),
 }
 
 thread_local! {
-    static TODO_LIST: RefCell<HashMap<String, String>> = RefCell::default();
+    // retain TODO list after canister updates
+    static MEMORY_MANAGER: RefCell<MemoryManager<DefaultMemoryImpl>> =
+        RefCell::new(MemoryManager::init(DefaultMemoryImpl::default()));
+
+    static TODO_LIST: RefCell<StableBTreeMap<String, String, Memory>> = RefCell::new(
+        StableBTreeMap::init(
+            MEMORY_MANAGER.with(|m| m.borrow().get(MemoryId::new(0))),
+        )
+    );
 }
 
 #[update]
@@ -77,12 +91,12 @@ fn get_todos_by_page(page_number: u32, per_page: u32) -> HashMap<String, String>
 
 #[update]
 fn update_todo_by_id(task_id: String, note: String) -> IcResult {
-    TODO_LIST.with(|todo_list| match todo_list.borrow_mut().get_mut(&task_id) {
-        Some(todo_text) => {
-            *todo_text = note;
-            IcResult::Ok(format!("Successfully updated task id: {}", task_id))
+    TODO_LIST.with(|todo_list| {
+        if !todo_list.borrow().contains_key(&task_id) {
+            return IcResult::Err(format!("No task found with id: {}", task_id));
         }
-        None => IcResult::Err(format!("No task found with id: {}", task_id)),
+        todo_list.borrow_mut().insert(task_id.to_owned(), note);
+        IcResult::Ok(format!("Successfully updated task id: {}", task_id))
     })
 }
 
@@ -93,3 +107,6 @@ fn delete_todo_by_id(task_id: String) -> IcResult {
         None => IcResult::Err(format!("No task found with id: {}", task_id)),
     })
 }
+
+// Enable Candid export
+ic_cdk::export_candid!();

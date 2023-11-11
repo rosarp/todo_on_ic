@@ -1,0 +1,30 @@
+{
+  "canisters": {
+    "todo_on_ic_backend": {
+      "candid": "src/todo_on_ic_backend/todo_on_ic_backend.did",
+      "package": "todo_on_ic_backend",
+      "type": "rust"
+    },
+    "todo_on_ic_frontend": {
+      "dependencies": [
+        "todo_on_ic_backend"
+      ],
+      "frontend": {
+        "entrypoint": "src/todo_on_ic_frontend/src/index.html"
+      },
+      "source": [
+        "src/todo_on_ic_frontend/assets",
+        "dist/todo_on_ic_frontend/"
+      ],
+      "type": "assets"
+    }
+  },
+  "defaults": {
+    "build": {
+      "args": "",
+      "packtool": ""
+    }
+  },
+  "output_env_file": ".env",
+  "version": 1
+}

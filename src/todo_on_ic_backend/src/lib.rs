@@ -31,19 +31,39 @@ thread_local! {
     );
 }
 
+#[cfg(feature = "no_canister")]
+fn get_time() -> u64 {
+    1699707661583u64
+}
+
+#[cfg(feature = "no_canister")]
+fn get_node_id() -> Vec<u8> {
+    vec![1, 2, 3, 4, 5, 6]
+}
+
+#[cfg(not(feature = "no_canister"))]
+fn get_time() -> u64 {
+    time()
+}
+
+#[cfg(not(feature = "no_canister"))]
+fn get_node_id() -> Vec<u8> {
+    caller().to_text().into_bytes()
+}
+
 #[update]
 fn create_todo(note: String) -> String {
     // ideally uuid should always give unique string
-    let context = Context::new(time() as u16);
-    let t64 = time();
+    let context = Context::new(get_time() as u16);
+    let t64 = get_time();
     let ts = Timestamp::from_unix(&context, t64, t64 as u32);
-    let node_id = caller().to_text().into_bytes();
+    let node_id = get_node_id();
     let node_id: &[u8; 6] = node_id.as_slice()[..6].try_into().unwrap();
     let mut id = Uuid::new_v1(ts, node_id).to_string();
     TODO_LIST.with(|todo_list| {
         // should ideally limit number of retries or give permanent error
         while todo_list.borrow().contains_key(&id) {
-            let t64 = time();
+            let t64 = get_time();
             let ts = Timestamp::from_unix(&context, t64, t64 as u32);
             id = Uuid::new_v1(ts, node_id).to_string();
         }
@@ -110,3 +130,37 @@ fn delete_todo_by_id(task_id: String) -> IcResult {
 
 // Enable Candid export
 ic_cdk::export_candid!();
+
+#[cfg(test)]
+mod tests {
+    use std::assert_eq;
+
+    use super::*;
+
+    #[test]
+    fn test_todo_crud() {
+        let note = "first";
+        let todo_id = create_todo(note.to_owned());
+        assert!(!todo_id.is_empty());
+        let result = get_todo_by_id(todo_id.to_owned());
+        assert_eq!(result, IcResult::Ok(note.to_owned()));
+        let map = get_todos_by_page(1, 1);
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get(&todo_id).unwrap(), note);
+        let update_result = update_todo_by_id(todo_id.to_owned(), "second".to_owned());
+        assert_eq!(
+            update_result,
+            IcResult::Ok(format!("Successfully updated task id: {}", todo_id))
+        );
+        let delete_result = delete_todo_by_id(todo_id.to_owned());
+        assert_eq!(
+            delete_result,
+            IcResult::Ok(format!("Successfully deleted task id: {}", todo_id))
+        );
+        let result = get_todo_by_id(todo_id.to_owned());
+        assert_eq!(
+            result,
+            IcResult::Err(format!("No task found with id: {}", todo_id.to_owned()))
+        );
+    }
+}
